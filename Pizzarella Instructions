@@ -1,0 +1,48 @@
+from azure.identity import DefaultAzureCredential
+from azure.ai.projects import AIProjectClient
+from azure.ai.projects.models import PromptAgentDefinition, WebSearchTool
+
+PROJECT_ENDPOINT = "https://pizzarella-openhack-atlanta.services.ai.azure.com/api/projects/proj-default"
+AGENT_NAME = "Pizzarella"
+
+project = AIProjectClient(
+    endpoint=PROJECT_ENDPOINT,
+    credential=DefaultAzureCredential(),
+)
+openai = project.get_openai_client()
+
+# Create an agent with a web search tool
+agent = project.agents.create_version(
+    agent_name=AGENT_NAME,
+    definition=PromptAgentDefinition(
+        model="gpt-4o",
+        instructions="You are a pizza assistant that places pizza orders. Use the web search tool to find information you don't know.",
+        tools=[WebSearchTool()],
+    ),
+)
+print(f"Agent: {agent.name}, Version: {agent.version}")
+
+# Generate a response using the agent
+response = openai.responses.create(
+    extra_body={
+        "agent_reference": {
+            "name": AGENT_NAME,
+            "type": "agent_reference",
+        }
+    },
+    input="What is your favorite pizza?",
+)
+print(response.output_text)
+
+# Ask a follow-up question using the previous response
+follow_up = openai.responses.create(
+    extra_body={
+        "agent_reference": {
+            "name": AGENT_NAME,
+            "type": "agent_reference",
+        }
+    },
+    previous_response_id=response.id,
+    input="Why?",
+)
+print(follow_up.output_text)
